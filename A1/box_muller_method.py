@@ -7,10 +7,23 @@ def box_muller_scheme(sample_size: int) -> np.ndarray:
     function which creates a sample of size sample_size from the 2d-dimensional standard normal distribution
     using the box-muller method
 
+
     :param sample_size: size of random sample to be generated
     :return: 2d numpy array
     """
-    pass
+
+    # generate U,V ~ U(0,1)
+    u = np.random.uniform(0, 1, sample_size)
+    v = np.random.uniform(0, 1, sample_size)
+
+    R = np.sqrt(-2 * np.log(u)) 
+    W = 2 * np.pi * v 
+
+    X = R * np.cos(W)
+    Y = R * np.sin(W)
+
+    return np.array([X, Y])  # shape (2, sample_size)
+
 
 def marsaglia_bray_scheme(sample_size: int) -> np.ndarray:
     """
@@ -55,6 +68,8 @@ def visualise(sample_array_dict: Dict[str, np.ndarray]):
         the 2d array representing the corresponding sample is assigned
     :return:
     """
+
+    
     pass
 
 def main():
