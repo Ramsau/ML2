@@ -43,7 +43,7 @@ def main():
     data_max = np.max(data_sample)
     x_arr = x = np.linspace(int(data_min) - 1, int(data_max) + 1, 1001)
 
-    bandwidth_list = 'fill me'
+    bandwidth_list = [0.03, 0.1, 0.3, 1]
     y_arr_list = [gaussian_kde(x, data_sample, bandwidth=h) for h in bandwidth_list]
 
     visualise_kde(x_arr, y_arr_list, data_sample, bandwidth_list)
