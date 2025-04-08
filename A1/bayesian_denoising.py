@@ -2,6 +2,7 @@ import numpy as np
 import os
 import pandas as pd
 from matplotlib import pyplot as plt
+from typing import Tuple
 
 def create_mnist_sample(root_path: str, sample_size_training: int, sample_size_test: int, label: int = 0):
     training_dataset_path = os.path.join(root_path, 'sign_mnist_train.csv')
@@ -70,6 +71,23 @@ def log_likelihood(y: np.ndarray, x: np.ndarray, sigma: float) -> np.array:
     """
     pass
 
+def visualise(denoised_image_index_arr: np.ndarray, training_data: np.ndarray, test_data: np.ndarray,
+              image_shape: Tuple[int, int] = (28, 28)):
+    num_plots_row = len(denoised_image_index_arr)
+
+    fig, axs = plt.subplots(2, num_plots_row)
+    for ax_col_idx, img_idx in enumerate(denoised_image_index_arr):
+        axs[0, ax_col_idx].xaxis.set_visible(False)
+        axs[0, ax_col_idx].yaxis.set_visible(False)
+        axs[1, ax_col_idx].xaxis.set_visible(False)
+        axs[1, ax_col_idx].yaxis.set_visible(False)
+
+        axs[0, ax_col_idx].imshow(test_data[ax_col_idx, :].reshape(image_shape))
+        axs[1, ax_col_idx].imshow(training_data[img_idx, :].reshape(image_shape))
+
+    plt.show()
+
+
 def main():
     data_root_path = 'fill me'          # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
     training_sample_size = 'fill me'
@@ -92,9 +110,7 @@ def main():
     denoised_image_index_arr = np.argmax(posterior, axis=0)
 
     # generate plots
-    fig, axs = plt.subplots(2, test_sample_size)
-
-    plt.show()
+    visualise(denoised_image_index_arr, training_data=training_data, test_data=test_data)
 
 if __name__ == '__main__':
     np.random.seed(123)
