@@ -57,9 +57,10 @@ def log_gaussian_kde(x: np.ndarray, data: np.ndarray, bandwidth: float) -> np.nd
     :param bandwidth: float
     :return: 2d numpy array containing for each input data item the kde approximator evaluated at x
     """
+    
     n = len(data)
     h = bandwidth
-    d = 2
+    d = x.shape[1]  # number of pixels in the image
     const_term = -np.log(n) - d * np.log(h) - d / 2 * np.log(2 * np.pi)  # the constant part of the kde
     parwise_distances = np.linalg.norm(x[:, np.newaxis] - data, axis=2) ** 2
     kernel = np.exp(-0.5 * parwise_distances / h ** 2)
@@ -76,7 +77,8 @@ def log_likelihood(y: np.ndarray, x: np.ndarray, sigma: float) -> np.array:
     :param sigma: noise level
     :return: 2d array containing in row i, column j the log likelihood f_{Y|X=x[i, :]}(y[j, :])
     """
-    d = 2 
+    
+    d = x.shape[1]  # number of pixels in the image
     return -d/2 * np.log(2 * np.pi * sigma ** 2) - (np.linalg.norm(y[:, np.newaxis] - x, axis=2) ** 2) / (2 * sigma ** 2)
 
 def visualise(denoised_image_index_arr: np.ndarray, training_data: np.ndarray, test_data: np.ndarray,
@@ -100,7 +102,7 @@ def main():
     data_root_path = '.'          # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
     training_sample_size = 1000
     test_sample_size = 10
-    noise_level = 0.05 # [0.05,0.1,0.25]
+    noise_level = 0.25 # [0.05,0.1,0.25]
     bandwidth = 0.1
 
     # load and preprocess data
@@ -115,7 +117,7 @@ def main():
     prior = log_gaussian_kde(training_data, training_data, bandwidth)
     posterior = llh + prior
 
-    denoised_image_index_arr = np.argmax(posterior, axis=0)
+    denoised_image_index_arr = np.argmax(posterior, axis=1)
 
     # generate plots
     visualise(denoised_image_index_arr, training_data=training_data, test_data=test_data)
