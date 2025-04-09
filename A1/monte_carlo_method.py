@@ -44,32 +44,56 @@ def monte_carlo_variance_reduction(sample_size: int):
     :return: tuple consisting of exact expected value, vanilla monte-carlo estimate and variance
         reduction monte-carlo estimate.
     """
-    pass
+    U_samples = np.random.uniform(size=sample_size)
+    g_samples = g(U_samples)
+    h_samples = h(U_samples)
+
+    # see protocol
+    expected_exact = 1.0/6.0
+
+    # slow:
+    # g_samples.sum() / float(sample_size)
+    expected_vanilla = g_samples.mean()
+
+    # expected value and variance of h are known, see protocol
+    expected_h = 1.0/8.0
+    variance_h = 1.0/48.0 - 1.0/64.0
+
+    # empirical covariance
+    a = -np.sum(
+        (h_samples - expected_h) * (g_samples - expected_vanilla)
+    ) / (sample_size * variance_h)
+
+    T_samples = g_samples + a * (h_samples - expected_h)
+
+    expected_variance_reduced = T_samples.mean()
+
+    return expected_exact, expected_vanilla, expected_variance_reduced
 
 def main():
     np.random.seed(123)
 
     # vanilla monte-carlo method for the estimation of expected value and variance
-    sample_size = 'fill me'
+    sample_size = int(10e5)
 
     b = 'fill me'
     a = 'fill me'
 
-    standard_normal_sample_1 = box_muller_scheme(sample_size)
-    normal_sample_1 = affine_linear_transformation(standard_normal_sample_1, a, b)
-    expected_value_1, variance_1 = monte_carlo(normal_sample_1)
-
-    standard_normal_sample_2 = marsaglia_bray_scheme(sample_size)
-    normal_sample_2 = affine_linear_transformation(standard_normal_sample_2, a, b)
-    expected_value_2, variance_2 = monte_carlo(normal_sample_2)
-
-    print('expected values:')
-    print(' > box muller: {:.7f}'.format(expected_value_1))
-    print(' > marsaglia bray: {:.7f}'.format(expected_value_2))
-
-    print('variances:')
-    print(' > box muller: {:.7f}'.format(variance_1))
-    print(' > marsaglia bray: {:.7f}'.format(variance_2))
+    # standard_normal_sample_1 = box_muller_scheme(sample_size)
+    # normal_sample_1 = affine_linear_transformation(standard_normal_sample_1, a, b)
+    # expected_value_1, variance_1 = monte_carlo(normal_sample_1)
+    #
+    # standard_normal_sample_2 = marsaglia_bray_scheme(sample_size)
+    # normal_sample_2 = affine_linear_transformation(standard_normal_sample_2, a, b)
+    # expected_value_2, variance_2 = monte_carlo(normal_sample_2)
+    #
+    # print('expected values:')
+    # print(' > box muller: {:.7f}'.format(expected_value_1))
+    # print(' > marsaglia bray: {:.7f}'.format(expected_value_2))
+    #
+    # print('variances:')
+    # print(' > box muller: {:.7f}'.format(variance_1))
+    # print(' > marsaglia bray: {:.7f}'.format(variance_2))
 
     # monte-carlo method with variance reduction
     exact_val, mc_vanilla, mc_variance_reduction = monte_carlo_variance_reduction(sample_size)
