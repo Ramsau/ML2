@@ -1,6 +1,6 @@
-import numpy as np
 import os
 import pandas as pd
+import numpy as np
 from matplotlib import pyplot as plt
 from typing import Tuple
 
@@ -57,7 +57,15 @@ def log_gaussian_kde(x: np.ndarray, data: np.ndarray, bandwidth: float) -> np.nd
     :param bandwidth: float
     :return: 2d numpy array containing for each input data item the kde approximator evaluated at x
     """
-    pass
+    
+    n = len(data)
+    h = bandwidth
+    d = x.shape[1]  # number of pixels in the image
+    const_term = -np.log(n) - d * np.log(h) - d / 2 * np.log(2 * np.pi)  # the constant part of the kde
+    parwise_distances = np.linalg.norm(x[:, np.newaxis] - data, axis=2) ** 2
+    kernel = np.exp(-0.5 * parwise_distances / h ** 2)
+    kernel_sum = np.sum(kernel, axis=1)
+    return const_term + np.log(kernel_sum)  # log of the kde approximator
 
 def log_likelihood(y: np.ndarray, x: np.ndarray, sigma: float) -> np.array:
     """
@@ -69,7 +77,9 @@ def log_likelihood(y: np.ndarray, x: np.ndarray, sigma: float) -> np.array:
     :param sigma: noise level
     :return: 2d array containing in row i, column j the log likelihood f_{Y|X=x[i, :]}(y[j, :])
     """
-    pass
+    
+    d = x.shape[1]  # number of pixels in the image
+    return -d/2 * np.log(2 * np.pi * sigma ** 2) - (np.linalg.norm(y[:, np.newaxis] - x, axis=2) ** 2) / (2 * sigma ** 2)
 
 def visualise(denoised_image_index_arr: np.ndarray, training_data: np.ndarray, test_data: np.ndarray,
               image_shape: Tuple[int, int] = (28, 28)):
@@ -89,11 +99,11 @@ def visualise(denoised_image_index_arr: np.ndarray, training_data: np.ndarray, t
 
 
 def main():
-    data_root_path = 'fill me'          # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
-    training_sample_size = 'fill me'
-    test_sample_size = 'fill me'
-    noise_level = 'fill me'
-    bandwidth = 'fill me'
+    data_root_path = '.'          # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
+    training_sample_size = 1000
+    test_sample_size = 10
+    noise_level = 0.25 # [0.05,0.1,0.25]
+    bandwidth = 0.1
 
     # load and preprocess data
     training_data, test_data = create_mnist_sample(root_path=data_root_path,
@@ -107,7 +117,7 @@ def main():
     prior = log_gaussian_kde(training_data, training_data, bandwidth)
     posterior = llh + prior
 
-    denoised_image_index_arr = np.argmax(posterior, axis=0)
+    denoised_image_index_arr = np.argmax(posterior, axis=1)
 
     # generate plots
     visualise(denoised_image_index_arr, training_data=training_data, test_data=test_data)
