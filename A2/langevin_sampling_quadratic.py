@@ -65,7 +65,7 @@ def covariance_matrix_ula_quadratic(Q: np.ndarray, gamma: float, k: int) -> np.n
 
     pass
 
-def kullback_leibler_normals(mu_1: np.ndarray, sig_1: np.ndarray, mu_2: np.ndarray, sig_2: np.ndarray) -> float:
+def kullback_leibler_normals(mu_1: np.ndarray, sig_1: np.ndarray, mu_2: np.ndarray, sig_2: np.ndarray) -> np.ndarray:
     """
     this function computes the kullback-leibler divergence between the normals N_2(mu_1, sig_1), N_2(mu_2, sig_2)
 
@@ -73,7 +73,7 @@ def kullback_leibler_normals(mu_1: np.ndarray, sig_1: np.ndarray, mu_2: np.ndarr
     :param sig_1: variance-covariance matrix
     :param mu_2: expected value
     :param sig_2: variance-covariance matrix
-    :return:
+    :return: numpy array of shape (num_chains, )
     """
 
     pass
@@ -93,8 +93,8 @@ def ula_quadratic(Q: np.ndarray, mu: np.ndarray, num_iterations: int,
     :param num_iterations: number of ULA steps
     :param gamma: ULA step size
     :param x0: initial value of shape (2, num_chains)
-    :return: numpy array of shape (num_iterations, 2, num_chains) of the ULA-iterates, list of kl-divergences between
-        ULA-distribution and target distribution, list of kl-divergences between
+    :return: numpy array of shape (num_iterations, 2, num_chains) of the ULA-iterates, list of kl-divergences
+        (averaged over chains) between ULA-distribution and target distribution, list of kl-divergences between
         ULA-distribution and limit distribution,
     """
 
