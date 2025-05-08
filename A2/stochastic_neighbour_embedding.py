@@ -122,7 +122,7 @@ def compute_distance_matrix(data: np.ndarray) -> np.ndarray:
     :return: 2d numpy array of distances, where the item in row i, column j equals the squared euclidian norm
         of the difference of the i-th and j-th data item
     """
-    pass
+    return data[:, np.newaxis, :] - data[np.newaxis, :, :]
 
 def compute_high_dim_similarity_matrix(distance_matrix: np.ndarray, sigma_array: np.ndarray) -> np.ndarray:
     """
@@ -208,8 +208,8 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
     :param exaggeration_iter_thresh: iteration beginning with which exxageration is omitted
     :return: 2d numpy array of low-dimensional representatives of high-dimensional data.
     """
-    alpha = 'fill me'
-    beta = 'fill me'
+    alpha = 500
+    beta = 0.7
 
     y0 = initial_guess(data.shape[0])
 
@@ -260,11 +260,11 @@ def visualise(low_dim_data: np.ndarray, image_labels: np.ndarray) -> None:
     plt.show()
 
 def main():
-    data_root_path = 'fill me'             # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
+    data_root_path = '.'             # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
 
-    num_training_samples = 'fill me'
-    num_iterations = 'fill me'
-    perplexity = 'fill me'
+    num_training_samples = 100
+    num_iterations = 500
+    perplexity = 20
     class_list = [0, 1, 2, 3, 4]
 
     # load data
