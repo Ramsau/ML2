@@ -132,7 +132,8 @@ def compute_high_dim_similarity_matrix(distance_matrix: np.ndarray, sigma_array:
     :param sigma_array: 1d numpy array of parameters sigma_i required for the computation of similarities
     :return: 2d numpy array where row i, column j contains the similarity measure p_{j|i}
     """
-    pass
+    sim_matrix = np.exp(-(np.linalg.norm(distance_matrix, axis=2) ** 2) / (2 * (sigma_array ** 2)))
+    return sim_matrix / np.sum(sim_matrix, axis=1)[:, np.newaxis]
 
 def symmetrise_similarity_matrix(similarity_matrix: np.ndarray) -> np.ndarray:
     """
@@ -168,7 +169,14 @@ def compute_gradient_tsne(y: np.ndarray, similarity_matrix_high_dim: np.ndarray,
     :param similarity_matrix_low_dim: 2d array of similarities q_{i, j}
     :return: gradient of kl-divergence between high- and low-dimensional similarity distributions
     """
-    pass
+    diff_y = y[:, np.newaxis, :] - y[np.newaxis, :, :]
+    diff_y_norm = np.linalg.norm(diff_y, axis=2, ord=2) ** 2
+    diff_sim = similarity_matrix_high_dim - similarity_matrix_low_dim
+
+    summands = (diff_sim / (1 + diff_y_norm)) * diff_y
+    return 4 * summands.sum(axis=1)
+
+    
 
 def initial_guess(sample_size: int, eps: float = 1e-4) -> np.ndarray:
     """
@@ -226,7 +234,9 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
 
     for k in range(0, num_iterations):
 
-        'HEAVY BALL UPDATE HERE'
+        # todo
+        # gradients = compute_gradient_tsne(y, similarities_high_dim, )
+
 
         if (k + 2) == exaggeration_iter_thresh:
             # renounce on exaggeration after some time
@@ -262,7 +272,7 @@ def visualise(low_dim_data: np.ndarray, image_labels: np.ndarray) -> None:
 def main():
     data_root_path = '.'             # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
 
-    num_training_samples = 100
+    num_training_samples = 10
     num_iterations = 500
     perplexity = 20
     class_list = [0, 1, 2, 3, 4]
