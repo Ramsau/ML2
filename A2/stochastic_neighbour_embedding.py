@@ -1,3 +1,4 @@
+from lib2to3.fixes.fix_tuple_params import simplify_args
 from typing import Optional, List, Tuple, Callable
 import numpy as np
 import matplotlib
@@ -122,7 +123,7 @@ def compute_distance_matrix(data: np.ndarray) -> np.ndarray:
     :return: 2d numpy array of distances, where the item in row i, column j equals the squared euclidian norm
         of the difference of the i-th and j-th data item
     """
-    return data[:, np.newaxis, :] - data[np.newaxis, :, :]
+    return np.linalg.norm(data[:, np.newaxis, :] - data[np.newaxis, :, :], axis=2) ** 2
 
 def compute_high_dim_similarity_matrix(distance_matrix: np.ndarray, sigma_array: np.ndarray) -> np.ndarray:
     """
@@ -132,8 +133,15 @@ def compute_high_dim_similarity_matrix(distance_matrix: np.ndarray, sigma_array:
     :param sigma_array: 1d numpy array of parameters sigma_i required for the computation of similarities
     :return: 2d numpy array where row i, column j contains the similarity measure p_{j|i}
     """
-    sim_matrix = np.exp(-(np.linalg.norm(distance_matrix, axis=2) ** 2) / (2 * (sigma_array ** 2)))
-    return sim_matrix / np.sum(sim_matrix, axis=1)[:, np.newaxis]
+    # TODO logsumexp trick
+    corrected_distance = -distance_matrix / (2 * (sigma_array ** 2))
+    np.fill_diagonal(corrected_distance, 0.0)
+    exp_sim = np.exp(corrected_distance)
+    np.fill_diagonal(exp_sim, 0.0)
+    logsumexp = np.log(np.sum(exp_sim))
+    similarity = np.exp(corrected_distance - logsumexp)
+    np.fill_diagonal(similarity, 0.0)
+    return similarity
 
 def symmetrise_similarity_matrix(similarity_matrix: np.ndarray) -> np.ndarray:
     """
@@ -173,7 +181,7 @@ def compute_gradient_tsne(y: np.ndarray, similarity_matrix_high_dim: np.ndarray,
     diff_y_norm = np.linalg.norm(diff_y, axis=2, ord=2) ** 2
     diff_sim = similarity_matrix_high_dim - similarity_matrix_low_dim
 
-    summands = (diff_sim / (1 + diff_y_norm)) * diff_y
+    summands = (diff_sim / (1 + diff_y_norm))[:, :, np.newaxis] * diff_y
     return 4 * summands.sum(axis=1)
 
     
@@ -233,9 +241,12 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
     similarities_high_dim = np.maximum(similarities_high_dim, 1e-10)
 
     for k in range(0, num_iterations):
-
-        # todo
-        # gradients = compute_gradient_tsne(y, similarities_high_dim, )
+        low_dim_distances = compute_distance_matrix(y)
+        similarities_low_dim = compute_low_dim_similarity_matrix_tsne(low_dim_distances)
+        gradients = compute_gradient_tsne(y, similarities_high_dim, similarities_low_dim)
+        y_new = y - alpha * gradients + beta * (y - y_old)
+        y_old = y.copy()
+        y = y_new.copy()
 
 
         if (k + 2) == exaggeration_iter_thresh:
