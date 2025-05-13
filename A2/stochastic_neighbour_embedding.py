@@ -136,9 +136,12 @@ def compute_high_dim_similarity_matrix(distance_matrix: np.ndarray, sigma_array:
     # TODO logsumexp trick
     corrected_distance = -distance_matrix / (2 * (sigma_array ** 2))
     np.fill_diagonal(corrected_distance, 0.0)
+    max_corrected_distance = np.max(corrected_distance)
+    corrected_distance -= max_corrected_distance
+    np.fill_diagonal(corrected_distance, 0.0)
     exp_sim = np.exp(corrected_distance)
     np.fill_diagonal(exp_sim, 0.0)
-    logsumexp = np.log(np.sum(exp_sim))
+    logsumexp = max_corrected_distance + np.log(np.sum(exp_sim))
     similarity = np.exp(corrected_distance - logsumexp)
     np.fill_diagonal(similarity, 0.0)
     return similarity
@@ -243,6 +246,8 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
     for k in range(0, num_iterations):
         low_dim_distances = compute_distance_matrix(y)
         similarities_low_dim = compute_low_dim_similarity_matrix_tsne(low_dim_distances)
+        similarities_low_dim = symmetrise_similarity_matrix(similarities_low_dim)
+        similarities_low_dim = np.maximum(similarities_low_dim, 1e-10)
         gradients = compute_gradient_tsne(y, similarities_high_dim, similarities_low_dim)
         y_new = y - alpha * gradients + beta * (y - y_old)
         y_old = y.copy()
@@ -283,7 +288,7 @@ def visualise(low_dim_data: np.ndarray, image_labels: np.ndarray) -> None:
 def main():
     data_root_path = '.'             # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
 
-    num_training_samples = 10
+    num_training_samples = 1000
     num_iterations = 500
     perplexity = 20
     class_list = [0, 1, 2, 3, 4]
