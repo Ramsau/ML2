@@ -1,3 +1,4 @@
+from lib2to3.fixes.fix_tuple_params import simplify_args
 from typing import Optional, List, Tuple, Callable
 import numpy as np
 import matplotlib
@@ -122,7 +123,7 @@ def compute_distance_matrix(data: np.ndarray) -> np.ndarray:
     :return: 2d numpy array of distances, where the item in row i, column j equals the squared euclidian norm
         of the difference of the i-th and j-th data item
     """
-    pass
+    return np.linalg.norm(data[:, np.newaxis, :] - data[np.newaxis, :, :], axis=2) ** 2
 
 def compute_high_dim_similarity_matrix(distance_matrix: np.ndarray, sigma_array: np.ndarray) -> np.ndarray:
     """
@@ -132,7 +133,18 @@ def compute_high_dim_similarity_matrix(distance_matrix: np.ndarray, sigma_array:
     :param sigma_array: 1d numpy array of parameters sigma_i required for the computation of similarities
     :return: 2d numpy array where row i, column j contains the similarity measure p_{j|i}
     """
-    pass
+    # TODO logsumexp trick
+    corrected_distance = -distance_matrix / (2 * (sigma_array ** 2))
+    np.fill_diagonal(corrected_distance, 0.0)
+    max_corrected_distance = np.max(corrected_distance)
+    corrected_distance -= max_corrected_distance
+    np.fill_diagonal(corrected_distance, 0.0)
+    exp_sim = np.exp(corrected_distance)
+    np.fill_diagonal(exp_sim, 0.0)
+    logsumexp = max_corrected_distance + np.log(np.sum(exp_sim))
+    similarity = np.exp(corrected_distance - logsumexp)
+    np.fill_diagonal(similarity, 0.0)
+    return similarity
 
 def symmetrise_similarity_matrix(similarity_matrix: np.ndarray) -> np.ndarray:
     """
@@ -168,7 +180,14 @@ def compute_gradient_tsne(y: np.ndarray, similarity_matrix_high_dim: np.ndarray,
     :param similarity_matrix_low_dim: 2d array of similarities q_{i, j}
     :return: gradient of kl-divergence between high- and low-dimensional similarity distributions
     """
-    pass
+    diff_y = y[:, np.newaxis, :] - y[np.newaxis, :, :]
+    diff_y_norm = np.linalg.norm(diff_y, axis=2, ord=2) ** 2
+    diff_sim = similarity_matrix_high_dim - similarity_matrix_low_dim
+
+    summands = (diff_sim / (1 + diff_y_norm))[:, :, np.newaxis] * diff_y
+    return 4 * summands.sum(axis=1)
+
+    
 
 def initial_guess(sample_size: int, eps: float = 1e-4) -> np.ndarray:
     """
@@ -208,8 +227,8 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
     :param exaggeration_iter_thresh: iteration beginning with which exxageration is omitted
     :return: 2d numpy array of low-dimensional representatives of high-dimensional data.
     """
-    alpha = 'fill me'
-    beta = 'fill me'
+    alpha = 500
+    beta = 0.7
 
     y0 = initial_guess(data.shape[0])
 
@@ -225,8 +244,15 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
     similarities_high_dim = np.maximum(similarities_high_dim, 1e-10)
 
     for k in range(0, num_iterations):
+        low_dim_distances = compute_distance_matrix(y)
+        similarities_low_dim = compute_low_dim_similarity_matrix_tsne(low_dim_distances)
+        similarities_low_dim = symmetrise_similarity_matrix(similarities_low_dim)
+        similarities_low_dim = np.maximum(similarities_low_dim, 1e-10)
+        gradients = compute_gradient_tsne(y, similarities_high_dim, similarities_low_dim)
+        y_new = y - alpha * gradients + beta * (y - y_old)
+        y_old = y.copy()
+        y = y_new.copy()
 
-        'HEAVY BALL UPDATE HERE'
 
         if (k + 2) == exaggeration_iter_thresh:
             # renounce on exaggeration after some time
@@ -260,11 +286,11 @@ def visualise(low_dim_data: np.ndarray, image_labels: np.ndarray) -> None:
     plt.show()
 
 def main():
-    data_root_path = 'fill me'             # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
+    data_root_path = '.'             # path to directory containing 'sign_mnist_train.csv', 'sign_mnist_test.csv'
 
-    num_training_samples = 'fill me'
-    num_iterations = 'fill me'
-    perplexity = 'fill me'
+    num_training_samples = 1000
+    num_iterations = 500
+    perplexity = 20
     class_list = [0, 1, 2, 3, 4]
 
     # load data
