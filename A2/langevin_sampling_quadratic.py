@@ -49,8 +49,10 @@ def expected_value_ula_quadratic(Q: np.ndarray, mu: np.ndarray, gamma: float, k:
     :param x0: initial guess
     :return: numpy array
     """
+    I = np.eye(2)
+    return mu +(np.linalg.matrix_power(I- Q*gamma, k)) @ (x0 - mu)
 
-    pass
+    
 
 def covariance_matrix_ula_quadratic(Q: np.ndarray, gamma: float, k: int) -> np.ndarray:
     """
@@ -62,8 +64,10 @@ def covariance_matrix_ula_quadratic(Q: np.ndarray, gamma: float, k: int) -> np.n
     :param k: iteration number
     :return: numpy array
     """
-
-    pass
+    I = np.eye(2)
+    first_term  = np.linalg.inv((Q - (gamma/2)* np.linalg.matrix_power(Q,2)))
+    second_term = np.linalg.matrix_power(I - (gamma/2) * Q, k) @ first_term
+    return first_term - second_term
 
 def kullback_leibler_normals(mu_1: np.ndarray, sig_1: np.ndarray, mu_2: np.ndarray, sig_2: np.ndarray) -> np.ndarray:
     """
@@ -75,8 +79,15 @@ def kullback_leibler_normals(mu_1: np.ndarray, sig_1: np.ndarray, mu_2: np.ndarr
     :param sig_2: variance-covariance matrix
     :return: numpy array of shape (num_chains, )
     """
+    d = 2
+    det_1 = np.linalg.det(sig_1)
+    det_2 = np.linalg.det(sig_2)
 
-    pass
+    first_term = np.log(det_2/det_1)
+    d = 2
+    second_term = (mu_1 - mu_2).T @ np.linalg.inv(sig_2) @ (mu_1 - mu_2)
+    third_term = np.trace(np.linalg.inv(sig_2) @ sig_1)
+    return 0.5 * (first_term + second_term + third_term - d)
 
 def ula_quadratic(Q: np.ndarray, mu: np.ndarray, num_iterations: int,
                   gamma: float, x0: np.ndarray) -> Tuple[np.ndarray, List[float], List[float]]:
@@ -97,8 +108,31 @@ def ula_quadratic(Q: np.ndarray, mu: np.ndarray, num_iterations: int,
         (averaged over chains) between ULA-distribution and target distribution, list of kl-divergences between
         ULA-distribution and limit distribution,
     """
+    num_chains = x0.shape[1]
+    langevin_sample_ula = np.zeros((num_iterations, 2, num_chains))
+    kl_div_sig = []
+    kl_div_sig_infty = []
+    target_mu = mu
+    target_sig = np.linalg.inv(Q)
+    limit_mu = mu
+    limit_sig = np.linalg.inv(Q-0.5 * gamma * np.linalg.matrix_power(Q, 2))
 
-    pass
+    x_curr = x0.copy()
+    for k in range(num_iterations):
+        langevin_sample_ula[k, :, :] = x_curr
+        x_curr = x_curr - gamma * grad_energy_func_quadratic(x_curr, Q, mu) + np.sqrt(2 * gamma) * np.random.randn(2, num_chains)
+       
+        mu_k = expected_value_ula_quadratic(Q, mu, gamma, k+1, x0)
+        sig_k = covariance_matrix_ula_quadratic(Q, gamma, k+1)
+        kl_div_sig.append(np.mean(kullback_leibler_normals(mu_k, sig_k, target_mu, target_sig)))
+        kl_div_sig_infty.append(np.mean(kullback_leibler_normals(mu_k, sig_k, limit_mu, limit_sig)))
+
+
+    return langevin_sample_ula, kl_div_sig, kl_div_sig_infty
+    
+    
+
+    
 
 def mala(grad_energy_func: Callable, density_func: Callable, num_iterations: int,
          gamma: float, x0: np.ndarray) -> np.ndarray:
@@ -247,11 +281,11 @@ def main():
     mu = np.zeros(2).reshape(-1, 1)
     Q = np.array([[4, 1], [1, 2]])
 
-    gamma = 'fill me'
+    gamma = 0.4
     Q_infty = Q - 0.5 * gamma * np.linalg.matrix_power(Q, 2)
 
-    num_iterations = 'fill me'
-    num_chains = 'fill me'
+    num_iterations = 5000
+    num_chains = 10
 
     x0 = 2 * (np.random.rand(2, num_chains) - 1)
 
@@ -268,10 +302,8 @@ def main():
     # ### ULA #####################################################
     # #############################################################
 
-    langevin_sample_ula_quadratic, kl_div_list_sig, kl_div_list_sig_infty \
-        = ula_quadratic(Q, mu, num_iterations, gamma, x0)
+    langevin_sample_ula_quadratic, kl_div_list_sig, kl_div_list_sig_infty = ula_quadratic(Q, mu, num_iterations, gamma, x0)
     langevin_sample_ula_quadratic = np.hstack(langevin_sample_ula_quadratic[burn_in::, :, :]).transpose()
-
     visualise_kl_divs(kl_div_list_sig, kl_div_list_sig_infty)
     visualise_sample_quadratic(langevin_sample_ula_quadratic, Q, Q_infty, mu)
     plt.show()
@@ -281,13 +313,13 @@ def main():
     # ### MALA ####################################################
     # #############################################################
 
-    langevin_sample_mala_quadratic = mala(lambda x: grad_energy_func_quadratic(x, Q, mu),
-                                          lambda x: density_func_quadratic(x, Q, mu), num_iterations, gamma, x0)
-    langevin_sample_mala_quadratic = np.hstack(langevin_sample_mala_quadratic[burn_in::, :, :]).transpose()
-    visualise_sample_quadratic(langevin_sample_mala_quadratic, Q, None, mu)
+    # langevin_sample_mala_quadratic = mala(lambda x: grad_energy_func_quadratic(x, Q, mu),
+    #                                       lambda x: density_func_quadratic(x, Q, mu), num_iterations, gamma, x0)
+    # langevin_sample_mala_quadratic = np.hstack(langevin_sample_mala_quadratic[burn_in::, :, :]).transpose()
+    # visualise_sample_quadratic(langevin_sample_mala_quadratic, Q, None, mu)
 
-    plt.show()
-    plt.close('all')
+    # plt.show()
+    # plt.close('all')
 
 if __name__ == '__main__':
     np.random.seed(123)
