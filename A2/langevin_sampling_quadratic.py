@@ -165,8 +165,8 @@ def mala(grad_energy_func: Callable, density_func: Callable, num_iterations: int
         u = np.random.rand(num_chains)
         # compute the transition probabilities
         trans_prob_forward= np.exp(np.sum((x_curr - x_prev + gamma*grad_energy_func(x_prev))**2, axis=0)/ (4 * gamma))
-        trans_prob_backward = np.exp(np.sum((x_prev - x_curr + gamma*grad_energy_func(x_curr))**2, axis=0))/(4 * gamma)
-        
+        trans_prob_backward = np.exp(np.sum((x_prev - x_curr + gamma*grad_energy_func(x_curr))**2, axis=0)/(4 * gamma))
+
         # compute the acceptance probability
         p_accept = np.minimum(1, (trans_prob_forward * density_func(x_curr))/(trans_prob_backward * density_func(x_prev)))
         
