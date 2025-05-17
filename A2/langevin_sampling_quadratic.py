@@ -151,9 +151,39 @@ def mala(grad_energy_func: Callable, density_func: Callable, num_iterations: int
     :param x0: initial guess of shape (2, num_chains)
     :return: numpy array of shape (num_iterations, 2, num_chains) of the ULA-iterates
     """
+    
+    
 
-    pass
+    num_chains = x0.shape[1]
+    langevin_sample_mala = np.zeros((num_iterations, 2, num_chains))
+    x_curr = x0.copy()
+    for k in range(num_iterations):
+        langevin_sample_mala[k, :, :] = x_curr
+        x_prev = x_curr.copy()
+        x_curr = x_prev - gamma * grad_energy_func(x_prev) + np.sqrt(2 * gamma) * np.random.randn(2, num_chains)
 
+        u = np.random.rand(num_chains)
+        # compute the transition probabilities
+        trans_prob_forward= np.exp(np.sum((x_curr - x_prev + gamma*grad_energy_func(x_prev))**2, axis=0)/ (4 * gamma))
+        trans_prob_backward = np.exp(np.sum((x_prev - x_curr + gamma*grad_energy_func(x_curr))**2, axis=0))/(4 * gamma)
+        
+        # compute the acceptance probability
+        p_accept = np.minimum(1, (trans_prob_forward * density_func(x_curr))/(trans_prob_backward * density_func(x_prev)))
+        
+        # accept or reject the new sample
+        accept_mask = u <= p_accept
+
+        # apply the acceptance mask
+        x_curr = np.where(accept_mask, x_curr, x_prev)
+
+
+
+
+
+        
+        
+    return langevin_sample_mala
+        
 def visualise_kl_divs(kl_div_sig: List[float], kl_div_sig_infty: List[float]):
     """
     this function creates a log-log plot depicting the evolution of the kl-divergence between the iterates
@@ -173,6 +203,7 @@ def visualise_kl_divs(kl_div_sig: List[float], kl_div_sig_infty: List[float]):
     ax.set_yscale('log')
     ax.set_title('kl divergence w.r.t. to target distribution (log-log)')
     ax.legend()
+    plt.tight_layout()
 
 def visualise_density_quadratic(Q: np.ndarray, Q_infty: np.ndarray, mu: np.ndarray):
     """
@@ -207,6 +238,7 @@ def visualise_density_quadratic(Q: np.ndarray, Q_infty: np.ndarray, mu: np.ndarr
     ax_2.set_xlim([-a, a])
     ax_2.set_ylim([-a, a])
     ax_2.set_title('limit distribution')
+    plt.tight_layout()
 
 def density_func_normal(x: np.ndarray, sig_sq: float, mu: float) -> np.ndarray:
     """
@@ -276,7 +308,7 @@ def visualise_sample_quadratic(sample: np.ndarray, Q: np.ndarray, Q_infty: Optio
 
     ax_marginal_x.legend()
     ax_marginal_y.legend()
-
+    plt.tight_layout()
 def main():
     mu = np.zeros(2).reshape(-1, 1)
     Q = np.array([[4, 1], [1, 2]])
@@ -302,24 +334,24 @@ def main():
     # ### ULA #####################################################
     # #############################################################
 
-    langevin_sample_ula_quadratic, kl_div_list_sig, kl_div_list_sig_infty = ula_quadratic(Q, mu, num_iterations, gamma, x0)
-    langevin_sample_ula_quadratic = np.hstack(langevin_sample_ula_quadratic[burn_in::, :, :]).transpose()
-    visualise_kl_divs(kl_div_list_sig, kl_div_list_sig_infty)
-    visualise_sample_quadratic(langevin_sample_ula_quadratic, Q, Q_infty, mu)
-    plt.show()
-    plt.close('all')
+    # langevin_sample_ula_quadratic, kl_div_list_sig, kl_div_list_sig_infty = ula_quadratic(Q, mu, num_iterations, gamma, x0)
+    # langevin_sample_ula_quadratic = np.hstack(langevin_sample_ula_quadratic[burn_in::, :, :]).transpose()
+    # visualise_kl_divs(kl_div_list_sig, kl_div_list_sig_infty)
+    # visualise_sample_quadratic(langevin_sample_ula_quadratic, Q, Q_infty, mu)
+    # plt.show()
+    # plt.close('all')
 
     # #############################################################
     # ### MALA ####################################################
     # #############################################################
 
-    # langevin_sample_mala_quadratic = mala(lambda x: grad_energy_func_quadratic(x, Q, mu),
-    #                                       lambda x: density_func_quadratic(x, Q, mu), num_iterations, gamma, x0)
-    # langevin_sample_mala_quadratic = np.hstack(langevin_sample_mala_quadratic[burn_in::, :, :]).transpose()
-    # visualise_sample_quadratic(langevin_sample_mala_quadratic, Q, None, mu)
+    langevin_sample_mala_quadratic = mala(lambda x: grad_energy_func_quadratic(x, Q, mu),
+                                          lambda x: density_func_quadratic(x, Q, mu), num_iterations, gamma, x0)
+    langevin_sample_mala_quadratic = np.hstack(langevin_sample_mala_quadratic[burn_in::, :, :]).transpose()
+    visualise_sample_quadratic(langevin_sample_mala_quadratic, Q, None, mu)
 
-    # plt.show()
-    # plt.close('all')
+    plt.show()
+    plt.close('all')
 
 if __name__ == '__main__':
     np.random.seed(123)
