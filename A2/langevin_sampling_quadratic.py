@@ -334,12 +334,12 @@ def main():
     # ### ULA #####################################################
     # #############################################################
 
-    # langevin_sample_ula_quadratic, kl_div_list_sig, kl_div_list_sig_infty = ula_quadratic(Q, mu, num_iterations, gamma, x0)
-    # langevin_sample_ula_quadratic = np.hstack(langevin_sample_ula_quadratic[burn_in::, :, :]).transpose()
-    # visualise_kl_divs(kl_div_list_sig, kl_div_list_sig_infty)
-    # visualise_sample_quadratic(langevin_sample_ula_quadratic, Q, Q_infty, mu)
-    # plt.show()
-    # plt.close('all')
+    langevin_sample_ula_quadratic, kl_div_list_sig, kl_div_list_sig_infty = ula_quadratic(Q, mu, num_iterations, gamma, x0)
+    langevin_sample_ula_quadratic = np.hstack(langevin_sample_ula_quadratic[burn_in::, :, :]).transpose()
+    visualise_kl_divs(kl_div_list_sig, kl_div_list_sig_infty)
+    visualise_sample_quadratic(langevin_sample_ula_quadratic, Q, Q_infty, mu)
+    plt.show()
+    plt.close('all')
 
     # #############################################################
     # ### MALA ####################################################
