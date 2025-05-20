@@ -264,13 +264,10 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
         similarities_low_dim = np.maximum(similarities_low_dim, 1e-10)
         gradients = compute_gradient_tsne(y.copy(), similarities_high_dim.copy(), similarities_low_dim.copy())
 
-
-        y_new = y.copy() - (alpha * gradients) + (beta * (y.copy() - y_old.copy()))
+        # y = y - (alpha * gradients)
+        y_new = y - (alpha * gradients) + (beta * (y - y_old))
         y_old = y.copy()
         y = y_new.copy()
-
-
-        'HEAVY BALL UPDATE HERE'
 
         if (k + 2) == exaggeration_iter_thresh:
             # renounce on exaggeration after some time
@@ -279,7 +276,7 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
         if (k + 1) % 10 == 0:
             loss = compute_loss(similarities_high_dim, similarities_low_dim)
             print('iteration [{:d}/{:d}]: loss = {:.7f}'.format(k + 1, num_iterations, loss))
-            visualise(y, labels)
+            # visualise(y.copy(), labels)
 
     return y
 
