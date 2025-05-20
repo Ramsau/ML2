@@ -49,8 +49,10 @@ def expected_value_ula_quadratic(Q: np.ndarray, mu: np.ndarray, gamma: float, k:
     :param x0: initial guess
     :return: numpy array
     """
+    I = np.eye(2)
+    return mu +(np.linalg.matrix_power(I- Q*gamma, k)) @ (x0 - mu)
 
-    pass
+    
 
 def covariance_matrix_ula_quadratic(Q: np.ndarray, gamma: float, k: int) -> np.ndarray:
     """
@@ -62,8 +64,10 @@ def covariance_matrix_ula_quadratic(Q: np.ndarray, gamma: float, k: int) -> np.n
     :param k: iteration number
     :return: numpy array
     """
-
-    pass
+    I = np.eye(2)
+    first_term  = np.linalg.inv((Q - (gamma/2)* np.linalg.matrix_power(Q,2)))
+    second_term = np.linalg.matrix_power(I - (gamma/2) * Q, k) @ first_term
+    return first_term - second_term
 
 def kullback_leibler_normals(mu_1: np.ndarray, sig_1: np.ndarray, mu_2: np.ndarray, sig_2: np.ndarray) -> np.ndarray:
     """
@@ -75,8 +79,15 @@ def kullback_leibler_normals(mu_1: np.ndarray, sig_1: np.ndarray, mu_2: np.ndarr
     :param sig_2: variance-covariance matrix
     :return: numpy array of shape (num_chains, )
     """
+    d = 2
+    det_1 = np.linalg.det(sig_1)
+    det_2 = np.linalg.det(sig_2)
 
-    pass
+    first_term = np.log(det_2/det_1)
+    d = 2
+    second_term = (mu_1 - mu_2).T @ np.linalg.inv(sig_2) @ (mu_1 - mu_2)
+    third_term = np.trace(np.linalg.inv(sig_2) @ sig_1)
+    return 0.5 * (first_term + second_term + third_term - d)
 
 def ula_quadratic(Q: np.ndarray, mu: np.ndarray, num_iterations: int,
                   gamma: float, x0: np.ndarray) -> Tuple[np.ndarray, List[float], List[float]]:
@@ -97,8 +108,31 @@ def ula_quadratic(Q: np.ndarray, mu: np.ndarray, num_iterations: int,
         (averaged over chains) between ULA-distribution and target distribution, list of kl-divergences between
         ULA-distribution and limit distribution,
     """
+    num_chains = x0.shape[1]
+    langevin_sample_ula = np.zeros((num_iterations, 2, num_chains))
+    kl_div_sig = []
+    kl_div_sig_infty = []
+    target_mu = mu
+    target_sig = np.linalg.inv(Q)
+    limit_mu = mu
+    limit_sig = np.linalg.inv(Q-0.5 * gamma * np.linalg.matrix_power(Q, 2))
 
-    pass
+    x_curr = x0.copy()
+    for k in range(num_iterations):
+        langevin_sample_ula[k, :, :] = x_curr
+        x_curr = x_curr - gamma * grad_energy_func_quadratic(x_curr, Q, mu) + np.sqrt(2 * gamma) * np.random.randn(2, num_chains)
+       
+        mu_k = expected_value_ula_quadratic(Q, mu, gamma, k+1, x0)
+        sig_k = covariance_matrix_ula_quadratic(Q, gamma, k+1)
+        kl_div_sig.append(np.mean(kullback_leibler_normals(mu_k, sig_k, target_mu, target_sig)))
+        kl_div_sig_infty.append(np.mean(kullback_leibler_normals(mu_k, sig_k, limit_mu, limit_sig)))
+
+
+    return langevin_sample_ula, kl_div_sig, kl_div_sig_infty
+    
+    
+
+    
 
 def mala(grad_energy_func: Callable, density_func: Callable, num_iterations: int,
          gamma: float, x0: np.ndarray) -> np.ndarray:
@@ -117,9 +151,39 @@ def mala(grad_energy_func: Callable, density_func: Callable, num_iterations: int
     :param x0: initial guess of shape (2, num_chains)
     :return: numpy array of shape (num_iterations, 2, num_chains) of the ULA-iterates
     """
+    
+    
 
-    pass
+    num_chains = x0.shape[1]
+    langevin_sample_mala = np.zeros((num_iterations, 2, num_chains))
+    x_curr = x0.copy()
+    for k in range(num_iterations):
+        langevin_sample_mala[k, :, :] = x_curr
+        x_prev = x_curr.copy()
+        x_curr = x_prev - gamma * grad_energy_func(x_prev) + np.sqrt(2 * gamma) * np.random.randn(2, num_chains)
 
+        u = np.random.rand(num_chains)
+        # compute the transition probabilities
+        trans_prob_forward= np.exp(np.sum((x_curr - x_prev + gamma*grad_energy_func(x_prev))**2, axis=0)/ (4 * gamma))
+        trans_prob_backward = np.exp(np.sum((x_prev - x_curr + gamma*grad_energy_func(x_curr))**2, axis=0)/(4 * gamma))
+
+        # compute the acceptance probability
+        p_accept = np.minimum(1, (trans_prob_forward * density_func(x_curr))/(trans_prob_backward * density_func(x_prev)))
+        
+        # accept or reject the new sample
+        accept_mask = u <= p_accept
+
+        # apply the acceptance mask
+        x_curr = np.where(accept_mask, x_curr, x_prev)
+
+
+
+
+
+        
+        
+    return langevin_sample_mala
+        
 def visualise_kl_divs(kl_div_sig: List[float], kl_div_sig_infty: List[float]):
     """
     this function creates a log-log plot depicting the evolution of the kl-divergence between the iterates
@@ -139,6 +203,7 @@ def visualise_kl_divs(kl_div_sig: List[float], kl_div_sig_infty: List[float]):
     ax.set_yscale('log')
     ax.set_title('kl divergence w.r.t. to target distribution (log-log)')
     ax.legend()
+    plt.tight_layout()
 
 def visualise_density_quadratic(Q: np.ndarray, Q_infty: np.ndarray, mu: np.ndarray):
     """
@@ -173,6 +238,7 @@ def visualise_density_quadratic(Q: np.ndarray, Q_infty: np.ndarray, mu: np.ndarr
     ax_2.set_xlim([-a, a])
     ax_2.set_ylim([-a, a])
     ax_2.set_title('limit distribution')
+    plt.tight_layout()
 
 def density_func_normal(x: np.ndarray, sig_sq: float, mu: float) -> np.ndarray:
     """
@@ -242,16 +308,16 @@ def visualise_sample_quadratic(sample: np.ndarray, Q: np.ndarray, Q_infty: Optio
 
     ax_marginal_x.legend()
     ax_marginal_y.legend()
-
+    plt.tight_layout()
 def main():
     mu = np.zeros(2).reshape(-1, 1)
     Q = np.array([[4, 1], [1, 2]])
 
-    gamma = 'fill me'
+    gamma = 0.4
     Q_infty = Q - 0.5 * gamma * np.linalg.matrix_power(Q, 2)
 
-    num_iterations = 'fill me'
-    num_chains = 'fill me'
+    num_iterations = 5000
+    num_chains = 10
 
     x0 = 2 * (np.random.rand(2, num_chains) - 1)
 
@@ -268,10 +334,8 @@ def main():
     # ### ULA #####################################################
     # #############################################################
 
-    langevin_sample_ula_quadratic, kl_div_list_sig, kl_div_list_sig_infty \
-        = ula_quadratic(Q, mu, num_iterations, gamma, x0)
+    langevin_sample_ula_quadratic, kl_div_list_sig, kl_div_list_sig_infty = ula_quadratic(Q, mu, num_iterations, gamma, x0)
     langevin_sample_ula_quadratic = np.hstack(langevin_sample_ula_quadratic[burn_in::, :, :]).transpose()
-
     visualise_kl_divs(kl_div_list_sig, kl_div_list_sig_infty)
     visualise_sample_quadratic(langevin_sample_ula_quadratic, Q, Q_infty, mu)
     plt.show()
