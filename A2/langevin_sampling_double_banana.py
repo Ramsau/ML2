@@ -12,8 +12,11 @@ def energy_func_double_banana(x1: np.ndarray, x2: np.ndarray, a: float, b: float
     :param a: non-negative parameter value
     :param b: non-negative parameter value
     :return: numpy array of function values
-    """
-    pass
+    """ 
+
+
+
+    return 0.5*(b**2)*(x1**2 + x2**2 - 2)**2 -np.log(np.exp(-0.5*(a**2)*(x1-2)**2) + np.exp(-0.5*(a**2)*(x1+2)**2))
 
 def grad_energy_func_double_banana(x1: np.ndarray, x2: np.ndarray, a: float, b: float) -> np.ndarray:
     """
@@ -26,7 +29,10 @@ def grad_energy_func_double_banana(x1: np.ndarray, x2: np.ndarray, a: float, b: 
     :return: numpy array containing partial derivative w.r.t the first coordinate and partial derivative w.r.t. the
         second coordinate
     """
-    pass
+    A = (x1-2 + (x1+2)*np.exp((-4*x1)/a**2))/((a**2) * (1 + np.exp((-4*x1)/a**2)))
+    grad_1 = (2/(b**2))*x1*(x1**2 + x2**2 - 2) + A
+    grad_2 = (2/(b**2))*x2*(x1**2 + x2**2 - 2)
+    return np.array([grad_1, grad_2])
 
 def density_func_double_banana(x1: np.ndarray, x2: np.ndarray, a: float, b: float) -> np.ndarray:
     """
@@ -68,9 +74,9 @@ def main():
     a = 0.6
     b = 1.8
 
-    num_iterations = 'fill me'
-    num_chains = 'fill me'
-    gamma = 'fill me'
+    num_iterations = 5000
+    num_chains = 3
+    gamma = 0.1
     x0 = 2 * (np.random.rand(2, num_chains) - 1)
     burn_in = 3000
 
