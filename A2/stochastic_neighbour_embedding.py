@@ -1,4 +1,3 @@
-from lib2to3.fixes.fix_tuple_params import simplify_args
 from typing import Optional, List, Tuple, Callable
 import numpy as np
 import matplotlib
@@ -190,7 +189,7 @@ def compute_gradient_tsne(y: np.ndarray, similarity_matrix_high_dim: np.ndarray,
     :return: gradient of kl-divergence between high- and low-dimensional similarity distributions
     """
     # i, j, d
-    diff_y = y[np.newaxis, :, :] - y[:, np.newaxis, :]
+    diff_y = y[:, np.newaxis, :] - y[np.newaxis, :, :]
     # i, j
     diff_y_norm = np.linalg.norm(diff_y, axis=2, ord=2) ** 2
     # i, j, d
@@ -203,7 +202,6 @@ def compute_gradient_tsne(y: np.ndarray, similarity_matrix_high_dim: np.ndarray,
     result = 4 * summands.sum(axis=1)
     return result
 
-    
 
 def initial_guess(sample_size: int, eps: float = 1e-4) -> np.ndarray:
     """
@@ -260,33 +258,25 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
     similarities_high_dim = np.maximum(similarities_high_dim, 1e-10)
 
     for k in range(0, num_iterations):
-        low_dim_distances = compute_distance_matrix(y)
+        low_dim_distances = compute_distance_matrix(y.copy())
         similarities_low_dim = compute_low_dim_similarity_matrix_tsne(low_dim_distances)
         similarities_low_dim = symmetrise_similarity_matrix(similarities_low_dim)
         similarities_low_dim = np.maximum(similarities_low_dim, 1e-10)
-        gradients = compute_gradient_tsne(y, similarities_high_dim, similarities_low_dim)
-
-        # mask = np.zeros(gradients.shape)
-        # mask[0] = [1.0, 1.0]
-        # # mask[1] = [1.0, 1.0]
-        # # mask[2] = [1.0, 1.0]
-        # # mask[-1] = [1.0, 1.0]
-        # gradients *= mask
-
-        y_new = y + (alpha * gradients) + (beta * (y - y_old))
-        y_old = y
-        y = y_new
-        # y = y - alpha * gradients
+        gradients = compute_gradient_tsne(y.copy(), similarities_high_dim.copy(), similarities_low_dim.copy())
 
 
-        similarities_low_dim = np.maximum(similarities_low_dim, 1e-10)
+        y_new = y.copy() - (alpha * gradients) + (beta * (y.copy() - y_old.copy()))
+        y_old = y.copy()
+        y = y_new.copy()
 
+
+        'HEAVY BALL UPDATE HERE'
 
         if (k + 2) == exaggeration_iter_thresh:
             # renounce on exaggeration after some time
             similarities_high_dim = similarities_high_dim / exaggeration
 
-        if (k + 1) % 1 == 0:
+        if (k + 1) % 10 == 0:
             loss = compute_loss(similarities_high_dim, similarities_low_dim)
             print('iteration [{:d}/{:d}]: loss = {:.7f}'.format(k + 1, num_iterations, loss))
             visualise(y, labels)
@@ -325,22 +315,7 @@ def main():
     # load data
     data, _ = load_mnist_data(root_path=data_root_path, num_training_samples=num_training_samples,
                               num_test_samples=0, class_list=class_list)
-    if True:
-        image_data, image_labels = preprocess_mnist_data(data)
-    else:
-        # test data
-        perplexity = 4.9
-        # perplexity = 1.0
-        image_data = np.array([
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-        ])
-        image_labels = np.array([0, 1, 2, 3, 4, 5])
-        # image_labels = np.array([0, 0, 1])
+    image_data, image_labels = preprocess_mnist_data(data)
 
     # train
     low_dim_data = train_tsne(image_data, num_iterations=num_iterations, perplexity=perplexity, labels=image_labels)
