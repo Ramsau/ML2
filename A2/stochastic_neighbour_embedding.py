@@ -133,17 +133,26 @@ def compute_high_dim_similarity_matrix(distance_matrix: np.ndarray, sigma_array:
     :param sigma_array: 1d numpy array of parameters sigma_i required for the computation of similarities
     :return: 2d numpy array where row i, column j contains the similarity measure p_{j|i}
     """
-    # TODO logsumexp trick
-    corrected_distance = -distance_matrix / (2 * (sigma_array ** 2))
-    np.fill_diagonal(corrected_distance, 0.0)
-    max_corrected_distance = np.max(corrected_distance)
-    corrected_distance -= max_corrected_distance
-    np.fill_diagonal(corrected_distance, 0.0)
-    exp_sim = np.exp(corrected_distance)
-    np.fill_diagonal(exp_sim, 0.0)
-    logsumexp = max_corrected_distance + np.log(np.sum(exp_sim))
-    similarity = np.exp(corrected_distance - logsumexp)
-    np.fill_diagonal(similarity, 0.0)
+    mask = np.ones(distance_matrix.shape, dtype=np.bool)
+    np.fill_diagonal(mask, False)
+    # i, j
+    neg_distance = -distance_matrix
+    # i
+    squared_sigmas = 2 * sigma_array ** 2
+    # i, j
+    corrected_distance = neg_distance / squared_sigmas[:, np.newaxis]
+    # i
+    max_corrected_distance = np.max(corrected_distance, axis=1, initial=-np.inf, where=mask)
+    # i, j
+    shifted_distance = corrected_distance - max_corrected_distance[:, np.newaxis]
+    # i, j
+    exp_distance = np.exp(shifted_distance)
+    np.fill_diagonal(exp_distance, 0.0)
+    # i
+    sums = np.sum(exp_distance, axis=1)
+    # i, j
+    similarity = exp_distance / sums[:, np.newaxis]
+
     return similarity
 
 def symmetrise_similarity_matrix(similarity_matrix: np.ndarray) -> np.ndarray:
@@ -180,12 +189,19 @@ def compute_gradient_tsne(y: np.ndarray, similarity_matrix_high_dim: np.ndarray,
     :param similarity_matrix_low_dim: 2d array of similarities q_{i, j}
     :return: gradient of kl-divergence between high- and low-dimensional similarity distributions
     """
-    diff_y = y[:, np.newaxis, :] - y[np.newaxis, :, :]
+    # i, j, d
+    diff_y = y[np.newaxis, :, :] - y[:, np.newaxis, :]
+    # i, j
     diff_y_norm = np.linalg.norm(diff_y, axis=2, ord=2) ** 2
+    # i, j, d
+    diff_y_normalized = diff_y / (1 + diff_y_norm)[:, :, np.newaxis]
+    # i, j
     diff_sim = similarity_matrix_high_dim - similarity_matrix_low_dim
+    np.fill_diagonal(diff_sim, 0.0)
 
-    summands = (diff_sim / (1 + diff_y_norm))[:, :, np.newaxis] * diff_y
-    return 4 * summands.sum(axis=1)
+    summands = diff_sim[:, :, np.newaxis] * diff_y_normalized
+    result = 4 * summands.sum(axis=1)
+    return result
 
     
 
@@ -214,7 +230,7 @@ def compute_loss(similarities_high_dim: np.ndarray, similarities_low_dim: np.nda
     return np.sum(similarities_high_dim * np.log(similarities_high_dim / similarities_low_dim))
 
 def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 20, exaggeration: float = 4,
-               exaggeration_iter_thresh: int = 50) -> np.ndarray:
+               exaggeration_iter_thresh: int = 50, labels=[]) -> np.ndarray:
     """
     this function incorporates the tsne training loop.
 
@@ -249,18 +265,31 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
         similarities_low_dim = symmetrise_similarity_matrix(similarities_low_dim)
         similarities_low_dim = np.maximum(similarities_low_dim, 1e-10)
         gradients = compute_gradient_tsne(y, similarities_high_dim, similarities_low_dim)
-        y_new = y - alpha * gradients + beta * (y - y_old)
-        y_old = y.copy()
-        y = y_new.copy()
+
+        # mask = np.zeros(gradients.shape)
+        # mask[0] = [1.0, 1.0]
+        # # mask[1] = [1.0, 1.0]
+        # # mask[2] = [1.0, 1.0]
+        # # mask[-1] = [1.0, 1.0]
+        # gradients *= mask
+
+        y_new = y + (alpha * gradients) + (beta * (y - y_old))
+        y_old = y
+        y = y_new
+        # y = y - alpha * gradients
+
+
+        similarities_low_dim = np.maximum(similarities_low_dim, 1e-10)
 
 
         if (k + 2) == exaggeration_iter_thresh:
             # renounce on exaggeration after some time
             similarities_high_dim = similarities_high_dim / exaggeration
 
-        if (k + 1) % 10 == 0:
+        if (k + 1) % 1 == 0:
             loss = compute_loss(similarities_high_dim, similarities_low_dim)
             print('iteration [{:d}/{:d}]: loss = {:.7f}'.format(k + 1, num_iterations, loss))
+            visualise(y, labels)
 
     return y
 
@@ -296,10 +325,25 @@ def main():
     # load data
     data, _ = load_mnist_data(root_path=data_root_path, num_training_samples=num_training_samples,
                               num_test_samples=0, class_list=class_list)
-    image_data, image_labels = preprocess_mnist_data(data)
+    if True:
+        image_data, image_labels = preprocess_mnist_data(data)
+    else:
+        # test data
+        perplexity = 4.9
+        # perplexity = 1.0
+        image_data = np.array([
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0],
+        ])
+        image_labels = np.array([0, 1, 2, 3, 4, 5])
+        # image_labels = np.array([0, 0, 1])
 
     # train
-    low_dim_data = train_tsne(image_data, num_iterations=num_iterations, perplexity=perplexity)
+    low_dim_data = train_tsne(image_data, num_iterations=num_iterations, perplexity=perplexity, labels=image_labels)
 
     # visualise
     visualise(low_dim_data, image_labels)
