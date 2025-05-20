@@ -228,7 +228,7 @@ def compute_loss(similarities_high_dim: np.ndarray, similarities_low_dim: np.nda
     return np.sum(similarities_high_dim * np.log(similarities_high_dim / similarities_low_dim))
 
 def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 20, exaggeration: float = 4,
-               exaggeration_iter_thresh: int = 50, labels=[]) -> np.ndarray:
+               exaggeration_iter_thresh: int = 50) -> np.ndarray:
     """
     this function incorporates the tsne training loop.
 
@@ -258,13 +258,11 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
     similarities_high_dim = np.maximum(similarities_high_dim, 1e-10)
 
     for k in range(0, num_iterations):
-        low_dim_distances = compute_distance_matrix(y.copy())
+        low_dim_distances = compute_distance_matrix(y)
         similarities_low_dim = compute_low_dim_similarity_matrix_tsne(low_dim_distances)
-        similarities_low_dim = symmetrise_similarity_matrix(similarities_low_dim)
         similarities_low_dim = np.maximum(similarities_low_dim, 1e-10)
-        gradients = compute_gradient_tsne(y.copy(), similarities_high_dim.copy(), similarities_low_dim.copy())
+        gradients = compute_gradient_tsne(y, similarities_high_dim, similarities_low_dim)
 
-        # y = y - (alpha * gradients)
         y_new = y - (alpha * gradients) + (beta * (y - y_old))
         y_old = y.copy()
         y = y_new.copy()
@@ -276,7 +274,6 @@ def train_tsne(data: np.ndarray, num_iterations: int = 500, perplexity: float = 
         if (k + 1) % 10 == 0:
             loss = compute_loss(similarities_high_dim, similarities_low_dim)
             print('iteration [{:d}/{:d}]: loss = {:.7f}'.format(k + 1, num_iterations, loss))
-            # visualise(y.copy(), labels)
 
     return y
 
@@ -315,7 +312,7 @@ def main():
     image_data, image_labels = preprocess_mnist_data(data)
 
     # train
-    low_dim_data = train_tsne(image_data, num_iterations=num_iterations, perplexity=perplexity, labels=image_labels)
+    low_dim_data = train_tsne(image_data, num_iterations=num_iterations, perplexity=perplexity)
 
     # visualise
     visualise(low_dim_data, image_labels)
