@@ -58,7 +58,6 @@ def train_ebm_max_likelihood(model: EnergyModel, dataset: TensorDataset,
     loss_list = []
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     model.train()
-    # print(data_loader.dataset[0].shape)
     k = 0
     stop = False
     while not stop:
@@ -101,11 +100,11 @@ def main():
     #   > use batch size in the range [4, 512]
 
 
-    energy_model = EnergyModel(num_hidden_units=2,
-                               num_hidden_neurons=128, activation_func=torch.nn.ReLU())
+    energy_model = EnergyModel(num_hidden_units=3,
+                               num_hidden_neurons=256, activation_func=torch.nn.ReLU())
     energy_model.to(dtype=dtype, device=device)
 
-    max_num_iterations = 3000
+    max_num_iterations = 5000
     batch_size = 512
     loss_list = train_ebm_max_likelihood(energy_model, dataset, max_num_iterations, batch_size=batch_size, device=device, dtype=dtype)
     x_0 = torch.randn(3000, 2).to(dtype=dtype, device=device)
