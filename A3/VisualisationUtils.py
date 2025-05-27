@@ -41,6 +41,8 @@ def visualise_energy_landscape(model: torch.nn.Module, x_box_low: float, x_box_h
     ax.set_ylabel('y')
 
     plt.show()
+    # savefig
+    plt.savefig('energy_landscape.png', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
 def visualise_training_dataset(dataset: TensorDataset) -> None:
@@ -65,7 +67,8 @@ def visualise_training_dataset(dataset: TensorDataset) -> None:
     ax.set_xlim([x_box_low, x_box_high])
     ax.set_ylim([y_box_low, y_box_high])
     ax.set_aspect('equal', adjustable='box')
-
+    # savefig
+    plt.savefig('training_dataset.png', dpi=300, bbox_inches='tight')
     plt.show()
     plt.close(fig)
 
@@ -101,6 +104,8 @@ def visualise_optimisation_stats(loss_list: List[float]) -> None:
     ax.legend()
 
     plt.show()
+    # savefig
+    plt.savefig('training_loss.png', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
 def visualise_samples(sample: torch.Tensor) -> None:
@@ -127,6 +132,8 @@ def visualise_samples(sample: torch.Tensor) -> None:
     ax.set_ylim([y_box_low, y_box_high])
 
     plt.show()
+    # savefig
+    plt.savefig('generated_samples.png', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
 def visualise_gradient_field(model: torch.nn.Module, x_box_low: float, x_box_high: float,

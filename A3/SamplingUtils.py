@@ -16,4 +16,21 @@ def sample(gradient_func: Callable, x_0: torch.Tensor, step_size: float=5e-4,
     :param num_sampling_steps: Number of Langevin steps to be performed.
     :return: List of generated samples.
     """
-    pass
+
+    x_curr = x_0.clone().detach()
+
+    samples =[]
+
+    for _ in range(num_sampling_steps):
+        # Ensure the current sample is detached from the computation graph
+        x_curr = x_curr.detach().requires_grad_()
+        # Compute the gradient
+        grad = gradient_func(x_curr)
+
+        # Update the current sample using Langevin dynamics
+        x_curr = x_curr - step_size * grad + torch.randn_like(x_curr) * np.sqrt(2 * step_size)
+
+        # Store the current sample
+        samples.append(x_curr.clone().detach())
+    return samples
+    
