@@ -20,7 +20,16 @@ def nce_loss(energy_model: NormalisedEnergyModel, noise_model: torch.distributio
     :param x: Tensor representing the current training data batch
     :return: NCE loss
     """
-    pass
+    noise = noise_model.sample(x.shape[:1]).to(dtype=x.dtype, device=x.device)
+
+    log_p_x = -energy_model(x).flatten()
+    log_q_x = noise_model.log_prob(x)
+    log_p_y = -energy_model(noise).flatten()
+    log_q_y = noise_model.log_prob(noise)
+    # log(a/b) = log(a) - log(b)
+    loss_x = log_p_x - torch.log(torch.exp(log_p_x) + torch.exp(log_q_x))
+    loss_y = log_q_y - torch.log(torch.exp(log_p_y) + torch.exp(log_q_y))
+    return -loss_x.sum() - loss_y.sum()
 
 def train_ebm_noise_contrastive_estimation(energy_model: NormalisedEnergyModel,
                                            noise_model: torch.distributions.Distribution,
@@ -37,12 +46,28 @@ def train_ebm_noise_contrastive_estimation(energy_model: NormalisedEnergyModel,
     :return: List of training losses
     """
     data_loader = DataLoader(dataset, batch_size=batch_size, collate_fn=collate_function)
+    loss_list = []
+    optimizer = torch.optim.Adam(energy_model.parameters(), lr=1e-3)
+    energy_model.train()
 
     k = 0
     stop = False
     while not stop:
         for batch in data_loader:
-            pass
+            k += 1
+            if k > max_num_iterations:
+                stop = True
+                break
+
+            loss = nce_loss(energy_model, noise_model, batch)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            loss_list.append(loss.item())
+            if k % 100 == 0:
+                print(f"Iteration {k}, Loss: {loss.item()}")
+
+    return loss_list
 
 def main():
     device = torch.device('cpu')
@@ -64,13 +89,13 @@ def main():
     #   > maximal number of iterations shouldn't be larger than 5000
     #   > use batch size in the range [4, 512]
 
-    energy_model = NormalisedEnergyModel(num_hidden_units='TODO: fill me',
-                                         num_hidden_neurons='TODO: fill me', activation_func='TODO: fill me')
+    energy_model = NormalisedEnergyModel(num_hidden_units=3,
+                                         num_hidden_neurons=256, activation_func=torch.nn.LeakyReLU())
     energy_model.to(dtype=dtype, device=device)
     noise_model = torch.distributions.MultivariateNormal(torch.zeros(2).to(device), 4 * torch.eye(2).to(device))
 
-    max_num_iterations = 'TODO: fill me'
-    batch_size = 'TODO: fill me'
+    max_num_iterations = 1000
+    batch_size = 100
     loss_list = train_ebm_noise_contrastive_estimation(energy_model, noise_model, dataset,
                                                        max_num_iterations, batch_size=batch_size)
 
