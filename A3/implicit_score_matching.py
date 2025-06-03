@@ -18,6 +18,12 @@ def implicit_score_matching_loss(model: EnergyGradientModel, x: torch.Tensor) ->
     :param x: Current training batch
     :return: Implicit score matching loss
     """
+    x.requires_grad_(True)
+    model.train()
+    score = model.forward(x)
+    norm = torch.norm(score, 2, dim=1) / 2.0
+    score_grad = torch.autograd.grad(inputs=x, outputs=score.sum(), grad_outputs=torch.ones_like(score))[0]
+    trace = score_grad.trace()
     pass
 
 def train_ebm_implicit_score_matching(model: EnergyGradientModel, dataset: TensorDataset,
@@ -62,7 +68,7 @@ def main():
     device = torch.device('cpu')
     dtype = torch.float64
 
-    num_data_samples = 2 ** 14
+    num_data_samples = 2 ** 10
     data = load_data(num_data_samples, 'rings')
     dataset = create_training_dataset(data, device=device, dtype=dtype)
 
