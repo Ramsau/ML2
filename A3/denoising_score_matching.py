@@ -19,7 +19,14 @@ def denoising_score_matching_loss(model: EnergyGradientModel, x: torch.Tensor, s
     :param sigma: Noise level
     :return: Denoising score matching loss
     """
-    pass
+    z = torch.randn_like(x)
+    y = x + (sigma * z)
+
+    piecewise_activation = (-z / sigma) - model(y)
+    loss = 0.5 * (piecewise_activation ** 2).mean()
+
+    return loss
+
 
 def train_ebm_denoising_score_matching(model: EnergyGradientModel, dataset: TensorDataset,
                                        max_num_iterations: int, batch_size: int=128) -> List[float]:
@@ -33,12 +40,28 @@ def train_ebm_denoising_score_matching(model: EnergyGradientModel, dataset: Tens
     :return: List of training losses
     """
     data_loader = DataLoader(dataset, batch_size=batch_size, collate_fn=collate_function)
+    loss_list = []
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    model.train()
 
     k = 0
     stop = False
     while not stop:
         for batch in data_loader:
-            pass
+            k += 1
+            if k > max_num_iterations:
+                stop = True
+                break
+
+            loss = denoising_score_matching_loss(model, batch)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            loss_list.append(loss.item())
+            if k % 100 == 0:
+                print(f"Iteration {k}, Loss: {loss.item()}")
+
+    return loss_list
 
 def main():
     device = torch.device('cpu')
@@ -60,12 +83,12 @@ def main():
     #   > maximal number of iterations shouldn't be larger than 5000
     #   > use batch size in the range [4, 512]
 
-    model = EnergyGradientModel(num_hidden_units='TODO: fill me',
-                                num_hidden_neurons='TODO: fill me', activation_func='TODO: fill me')
+    model = EnergyGradientModel(num_hidden_units=3,
+                                num_hidden_neurons=256, activation_func=torch.nn.Sigmoid())
     model.to(dtype=dtype, device=device)
 
-    max_num_iterations = 'TODO: fill me'
-    batch_size = 'TODO: fill me'
+    max_num_iterations = 5000
+    batch_size = 512
     loss_list = train_ebm_denoising_score_matching(model, dataset, max_num_iterations, batch_size)
 
     visualise_optimisation_stats(loss_list)
