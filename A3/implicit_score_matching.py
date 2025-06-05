@@ -18,13 +18,28 @@ def implicit_score_matching_loss(model: EnergyGradientModel, x: torch.Tensor) ->
     :param x: Current training batch
     :return: Implicit score matching loss
     """
-    x.requires_grad_(True)
+    x = x.detach().requires_grad_(True)
     model.train()
-    score = model.forward(x)
-    norm = torch.norm(score, 2, dim=1) / 2.0
-    score_grad = torch.autograd.grad(inputs=x, outputs=score.sum(), grad_outputs=torch.ones_like(score))[0]
-    trace = score_grad.trace()
-    pass
+
+    score = model(x)
+    trace_gradients = 0.0
+
+    for i in range(score.shape[1]):  # iterate over dimensions and calculate derivative on main diagonal
+        grad_outputs = torch.zeros_like(score)
+        grad_outputs[:, i] = 1.0  # only on diagonal
+        grad_i = torch.autograd.grad(
+            outputs=score,
+            inputs=x,
+            grad_outputs=grad_outputs,
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True
+        )[0]
+        trace_gradients += grad_i[:, i]
+
+    trace_term = trace_gradients.mean()
+    norm_term = 0.5 * (score ** 2).sum(dim=1).mean()
+    return trace_term + norm_term
 
 def train_ebm_implicit_score_matching(model: EnergyGradientModel, dataset: TensorDataset,
                                       max_num_iterations: int, batch_size: int=512) -> List[float]:
